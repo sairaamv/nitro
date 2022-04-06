@@ -1,0 +1,4 @@
+fastapi
+uvicorn
+starlette
+h2o-nitro

@@ -62,6 +62,10 @@ def create(name: str, template: str, framework: str):
     Initialize a Starlette app named "my_app" based on the recruitment starter app::
     $ nitro create my_app --template recruitment --framework starlette
 
+    \b
+    Initialize a fastapi app named "my_app" based on the recruitment starter app::
+    $ nitro create my_app --template recruitment --framework fastapi
+
     """
     sample_dir = samples_dir / template
     if not sample_dir.is_dir():
