@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import random
 from pathlib import Path
 from typing import Optional, Sequence, Set, Tuple, List, Dict, Union, Callable
 from collections import OrderedDict
@@ -32,19 +33,12 @@ def _xid() -> str:
 class _MsgType(IntEnum):
     Error = 1
     Join = 2
-    Leave = 3
-    Abort = 4
-    Resume = 5
-    Request = 6
-    Response = 7
-    Watch = 8
-    Event = 9
-    Input = 10
-    Insert = 11
-    Update = 12
-    Remove = 13
-    Conf = 14
-    Switch = 15
+    Switch = 3
+    Input = 4
+    Set = 5
+    Insert = 6
+    Update = 7
+    Remove = 8
 
 
 _primitive = (bool, int, float, str)
@@ -101,6 +95,7 @@ class Option:
             self,
             value: Union[V, Callable],
             text: Optional[str] = None,
+            name: Optional[str] = None,
             icon: Optional[str] = None,
             caption: Optional[str] = None,
             selected: Optional[bool] = None,
@@ -109,6 +104,7 @@ class Option:
         self.delegate = value if callable(value) else None
         self.value = value if self.delegate is None else _xid()
         self.text = text
+        self.name = name
         self.icon = icon
         self.caption = caption
         self.selected = selected
@@ -118,6 +114,7 @@ class Option:
         d = dict(
             value=self.value,
             text=self.text,
+            name=self.name,
             icon=self.icon,
             caption=self.caption,
             selected=self.selected,
@@ -153,6 +150,7 @@ Range = Union[
     List[V],
 ]
 Value = Union[
+    bool,
     V,
     Tuple[V, V],
     List[V],
@@ -166,6 +164,28 @@ Sizing = Union[
     Tuple[Length, Length],
     Tuple[Length, Length, Length],
 ]
+
+
+class Theme:
+    def __init__(
+            self,
+            background_color: str,
+            foreground_color: str,
+            accent_color: str,
+            accent_color_name: str,
+    ):
+        self.background_color = background_color
+        self.foreground_color = foreground_color
+        self.accent_color = accent_color
+        self.accent_color_name = accent_color_name
+
+    def dump(self) -> dict:
+        return dict(
+            background_color=self.background_color,
+            foreground_color=self.foreground_color,
+            accent_color=self.accent_color,
+            accent_color_name=self.accent_color_name,
+        )
 
 
 class Box:
@@ -182,6 +202,9 @@ class Box:
             cross_tile: Optional[str] = None,
             wrap: Optional[str] = None,
             gap: Optional[Length] = None,
+            grow: Optional[int] = None,
+            shrink: Optional[int] = None,
+            basis: Optional[Length] = None,
             align: Optional[str] = None,
             width: Optional[Sizing] = None,
             height: Optional[Sizing] = None,
@@ -190,9 +213,8 @@ class Box:
             color: Optional[str] = None,
             background: Optional[str] = None,
             border: Optional[str] = None,
-            grow: Optional[int] = None,
-            shrink: Optional[int] = None,
-            basis: Optional[Length] = None,
+            image: Optional[str] = None,
+            fit: Optional[str] = None,
             icon: Optional[str] = None,
             min: Optional[V] = None,
             max: Optional[V] = None,
@@ -231,6 +253,9 @@ class Box:
         self.cross_tile = cross_tile
         self.wrap = wrap
         self.gap = gap
+        self.grow = grow
+        self.shrink = shrink
+        self.basis = basis
         self.align = align
         self.width = width
         self.height = height
@@ -239,9 +264,8 @@ class Box:
         self.color = color
         self.background = background
         self.border = border
-        self.grow = grow
-        self.shrink = shrink
-        self.basis = basis
+        self.image = image
+        self.fit = fit
         self.icon = icon
         self.min = min
         self.max = max
@@ -272,6 +296,9 @@ class Box:
             cross_tile=self.cross_tile,
             wrap=self.wrap,
             gap=self.gap,
+            grow=self.grow,
+            shrink=self.shrink,
+            basis=self.basis,
             align=self.align,
             width=self.width,
             height=self.height,
@@ -280,9 +307,8 @@ class Box:
             color=self.color,
             background=self.background,
             border=self.border,
-            grow=self.grow,
-            shrink=self.shrink,
-            basis=self.basis,
+            image=self.image,
+            fit=self.fit,
             icon=self.icon,
             min=self.min,
             max=self.max,
@@ -325,10 +351,14 @@ class BoxAlign(Enum):
 
 def row(
         *items: Item,
+        name: Optional[str] = None,
         tile: Optional[str] = None,
         cross_tile: Optional[str] = None,
         wrap: Optional[str] = None,
         gap: Optional[Length] = None,
+        grow: Optional[int] = None,
+        shrink: Optional[int] = None,
+        basis: Optional[Length] = None,
         align: Optional[str] = None,
         width: Optional[Sizing] = None,
         height: Optional[Sizing] = None,
@@ -337,17 +367,20 @@ def row(
         color: Optional[str] = None,
         background: Optional[str] = None,
         border: Optional[str] = None,
-        grow: Optional[int] = None,
-        shrink: Optional[int] = None,
-        basis: Optional[Length] = None,
+        image: Optional[str] = None,
+        fit: Optional[str] = None,
 ) -> Box:
     return Box(
         items=items,
+        name=name,
         row=True,
         tile=tile,
         cross_tile=cross_tile,
         wrap=wrap,
         gap=gap,
+        grow=grow,
+        shrink=shrink,
+        basis=basis,
         align=align,
         width=width,
         height=height,
@@ -356,18 +389,21 @@ def row(
         color=color,
         background=background,
         border=border,
-        grow=grow,
-        shrink=shrink,
-        basis=basis,
+        image=image,
+        fit=fit,
     )
 
 
 def col(
         *items: Item,
+        name: Optional[str] = None,
         tile: Optional[str] = None,
         cross_tile: Optional[str] = None,
         wrap: Optional[str] = None,
         gap: Optional[Length] = None,
+        grow: Optional[int] = None,
+        shrink: Optional[int] = None,
+        basis: Optional[Length] = None,
         align: Optional[str] = None,
         width: Optional[Sizing] = None,
         height: Optional[Sizing] = None,
@@ -376,16 +412,19 @@ def col(
         color: Optional[str] = None,
         background: Optional[str] = None,
         border: Optional[str] = None,
-        grow: Optional[int] = None,
-        shrink: Optional[int] = None,
-        basis: Optional[Length] = None,
+        image: Optional[str] = None,
+        fit: Optional[str] = None,
 ) -> Box:
     return Box(
         items=items,
+        name=name,
         tile=tile,
         cross_tile=cross_tile,
         wrap=wrap,
         gap=gap,
+        grow=grow,
+        shrink=shrink,
+        basis=basis,
         align=align,
         width=width,
         height=height,
@@ -394,9 +433,8 @@ def col(
         color=color,
         background=background,
         border=border,
-        grow=grow,
-        shrink=shrink,
-        basis=basis,
+        image=image,
+        fit=fit,
     )
 
 
@@ -434,26 +472,44 @@ def _interpret(msg, expected: int):
     raise ProtocolError(f'unknown message format: want dict, got {type(msg)}')
 
 
+def _marshal_set(
+        title: str = None,
+        caption: str = None,
+        menu: Optional[Sequence[Option]] = None,
+        nav: Optional[Sequence[Option]] = None,
+        theme: Optional[Theme] = None,
+) -> dict:
+    return _marshal(dict(t=_MsgType.Set, d=_clean(dict(
+        title=title,
+        caption=caption,
+        menu=_dump(menu),
+        nav=_dump(nav),
+        theme=_dump(theme),
+    ))))
+
+
 class _View:
     def __init__(
             self,
             delegate: Callable,
-            title: str = 'H2O Nitro',
-            caption: str = 'v0.1.0',  # XXX show actual version
             context: any = None,
-            menu: Optional[Sequence[Option]] = None,
-            nav: Optional[Sequence[Option]] = None,
             send: Optional[Callable] = None,
             recv: Optional[Callable] = None,
+            title: str = 'H2O Nitro',
+            caption: str = 'v0.1.0',  # XXX show actual version
+            menu: Optional[Sequence[Option]] = None,
+            nav: Optional[Sequence[Option]] = None,
+            theme: Optional[Theme] = None,
     ):
         self._delegate = delegate
+        self.context = context or {}
+        self._send = send
+        self._recv = recv
         self._title = title
         self._caption = caption
         self._menu = menu or []
         self._nav = nav or []
-        self.context = context or {}
-        self._send = send
-        self._recv = recv
+        self._theme = theme
 
         self._delegates: Dict[str, Callable] = dict()
         _collect_delegates(self._delegates, self._menu)
@@ -461,12 +517,13 @@ class _View:
 
     def _join(self, msg):
         # XXX handle join msg
-        return _marshal(dict(t=_MsgType.Conf, d=dict(
+        return _marshal_set(
             title=self._title,
             caption=self._caption,
             menu=_dump(self._menu),
             nav=_dump(self._nav),
-        )))
+            theme=_dump(self._theme),
+        )
 
     def __getitem__(self, key):
         return self.context.get(key)
@@ -485,18 +542,29 @@ class View(_View):
     def __init__(
             self,
             delegate: Callable,
+            context: any = None,
+            send: Optional[Callable] = None,
+            recv: Optional[Callable] = None,
             title: str = None,
             caption: str = None,
             menu: Optional[Sequence[Option]] = None,
             nav: Optional[Sequence[Option]] = None,
-            context: any = None,
-            send: Optional[Callable] = None,
-            recv: Optional[Callable] = None,
+            theme: Optional[Theme] = None,
     ):
-        super().__init__(delegate, title, caption, context, menu, nav, send, recv)
+        super().__init__(delegate, context, send, recv, title, caption, menu, nav, theme)
 
     def serve(self, send: Callable, recv: Callable, context: any = None):
-        View(self._delegate, self._title, self._caption, self._menu, self._nav, context, send, recv)._run()
+        View(
+            self._delegate,
+            context,
+            send,
+            recv,
+            self._title,
+            self._caption,
+            self._menu,
+            self._nav,
+            self._theme,
+        )._run()
 
     def _run(self):
         self._send(self._join(self._read(_MsgType.Join)))
@@ -516,8 +584,21 @@ class View(_View):
             return _interpret(_unmarshal(m), expected)
         raise InterruptError()
 
-    def _write(self, t: _MsgType, s: Box, position: Optional[int]):
-        self._send(_marshal(_clean(dict(t=t, d=s.dump(), p=position))))
+    def set(
+            self,
+            title: str = None,
+            caption: str = None,
+            menu: Optional[Sequence[Option]] = None,
+            nav: Optional[Sequence[Option]] = None,
+            theme: Optional[Theme] = None,
+    ):
+        self._send(_marshal_set(
+            title=title,
+            caption=caption,
+            menu=menu,
+            nav=nav,
+            theme=theme,
+        ))
 
     def __call__(
             self,
@@ -530,6 +611,9 @@ class View(_View):
             cross_tile: Optional[str] = None,
             wrap: Optional[str] = None,
             gap: Optional[Length] = None,
+            grow: Optional[int] = None,
+            shrink: Optional[int] = None,
+            basis: Optional[Length] = None,
             align: Optional[str] = None,
             width: Optional[Sizing] = None,
             height: Optional[Sizing] = None,
@@ -538,9 +622,8 @@ class View(_View):
             color: Optional[str] = None,
             background: Optional[str] = None,
             border: Optional[str] = None,
-            grow: Optional[int] = None,
-            shrink: Optional[int] = None,
-            basis: Optional[Length] = None,
+            image: Optional[str] = None,
+            fit: Optional[str] = None,
     ):
         if len(items):
             b = Box(
@@ -550,6 +633,9 @@ class View(_View):
                 cross_tile=cross_tile,
                 wrap=wrap,
                 gap=gap,
+                grow=grow,
+                shrink=shrink,
+                basis=basis,
                 align=align,
                 width=width,
                 height=height,
@@ -558,33 +644,46 @@ class View(_View):
                 color=color,
                 background=background,
                 border=border,
-                grow=grow,
-                shrink=shrink,
-                basis=basis,
+                image=image,
+                fit=fit,
             )
-
-            self._write(_MsgType.Update if overwrite else _MsgType.Insert, b, position)
+            self._send(_marshal(_clean(dict(
+                t=_MsgType.Update if overwrite else _MsgType.Insert,
+                d=b.dump(),
+                p=position,
+            ))))
         if read:
-            return self._read(_MsgType.Input)
+            res = self._read(_MsgType.Input)
+            return res
 
 
 class AsyncView(_View):
     def __init__(
             self,
             delegate: Callable,
+            context: any = None,
+            send: Optional[Callable] = None,
+            recv: Optional[Callable] = None,
             title: str = None,
             caption: str = None,
             menu: Optional[Sequence[Option]] = None,
             nav: Optional[Sequence[Option]] = None,
-            context: any = None,
-            send: Optional[Callable] = None,
-            recv: Optional[Callable] = None,
-
+            theme: Optional[Theme] = None,
     ):
-        super().__init__(delegate, title, caption, context, menu, nav, send, recv)
+        super().__init__(delegate, context, send, recv, title, caption, menu, nav, theme)
 
     async def serve(self, send: Callable, recv: Callable, context: any = None):
-        await AsyncView(self._delegate, self._title, self._caption, self._menu, self._nav, context, send, recv)._run()
+        await AsyncView(
+            self._delegate,
+            context,
+            send,
+            recv,
+            self._title,
+            self._caption,
+            self._menu,
+            self._nav,
+            self._theme,
+        )._run()
 
     async def _run(self):
         await self._send(self._join(await self._read(_MsgType.Join)))
@@ -604,8 +703,21 @@ class AsyncView(_View):
             return _interpret(_unmarshal(m), expected)
         raise InterruptError()
 
-    async def _write(self, t: _MsgType, b: Box, position: Optional[int]):
-        await self._send(_marshal(_clean(dict(t=t, d=b.dump(), p=position))))
+    async def set(
+            self,
+            title: str = None,
+            caption: str = None,
+            menu: Optional[Sequence[Option]] = None,
+            nav: Optional[Sequence[Option]] = None,
+            theme: Optional[Theme] = None,
+    ):
+        await self._send(_marshal_set(
+            title=title,
+            caption=caption,
+            menu=menu,
+            nav=nav,
+            theme=theme,
+        ))
 
     async def __call__(
             self,
@@ -618,6 +730,9 @@ class AsyncView(_View):
             cross_tile: Optional[str] = None,
             wrap: Optional[str] = None,
             gap: Optional[Length] = None,
+            grow: Optional[int] = None,
+            shrink: Optional[int] = None,
+            basis: Optional[Length] = None,
             align: Optional[str] = None,
             width: Optional[Sizing] = None,
             height: Optional[Sizing] = None,
@@ -626,9 +741,8 @@ class AsyncView(_View):
             color: Optional[str] = None,
             background: Optional[str] = None,
             border: Optional[str] = None,
-            grow: Optional[int] = None,
-            shrink: Optional[int] = None,
-            basis: Optional[Length] = None,
+            image: Optional[str] = None,
+            fit: Optional[str] = None,
     ):
         if len(items):
             b = Box(
@@ -638,6 +752,9 @@ class AsyncView(_View):
                 cross_tile=cross_tile,
                 wrap=wrap,
                 gap=gap,
+                grow=grow,
+                shrink=shrink,
+                basis=basis,
                 align=align,
                 width=width,
                 height=height,
@@ -646,11 +763,34 @@ class AsyncView(_View):
                 color=color,
                 background=background,
                 border=border,
-                grow=grow,
-                shrink=shrink,
-                basis=basis,
+                image=image,
+                fit=fit,
             )
-
-            await self._write(_MsgType.Update if overwrite else _MsgType.Insert, b, position)
+            await self._send(_marshal(_clean(dict(
+                t=_MsgType.Update if overwrite else _MsgType.Insert,
+                d=b.dump(),
+                p=position,
+            ))))
         if read:
             return await self._read(_MsgType.Input)
+
+
+_lorem = '''
+lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna 
+aliqua ut enim ad minim veniam quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat 
+duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur 
+excepteur sint occaecat cupidatat non proident sunt in culpa qui officia deserunt mollit anim id est laborum
+'''
+
+_lorems = set([w.strip() for w in _lorem.split(' ')])
+
+
+def _sentence(min, max):
+    return ' '.join(random.sample(_lorems, random.randint(min, max))).capitalize()
+
+
+def lorem(sentences: int = 0):
+    if sentences == 0:
+        return _sentence(4, 5)
+    lines = [_sentence(5, 9) for i in range(sentences)]
+    return '. '.join(lines) + '.'

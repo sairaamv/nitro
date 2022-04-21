@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { anyD, anyN, Incr, isN, isO, isPair, isS, isV, words, xid } from './core';
+import { anyD, anyN, Incr, isB, isN, isO, isPair, isS, isV, words, xid } from './core';
 import { markdown } from './markdown';
 import { Box, BoxMode, Option } from './protocol';
 
@@ -62,7 +62,15 @@ const determineMode = (box: Box): BoxMode => {
     return 'text'
   }
 
-  return 'md'
+  if (box.text) {
+    return 'md'
+  }
+
+  if (box.image) {
+    return 'image'
+  }
+
+  return 'none'
 }
 
 const sanitizeRange = (box: Box) => {
@@ -105,7 +113,7 @@ const sanitizeRange = (box: Box) => {
   }
 }
 
-const sanitizeOptions = (x: any): Option[] => { // recursive
+export const sanitizeOptions = (x: any): Option[] => { // recursive
   if (!x) return []
   if (Array.isArray(x)) {
     const c: Option[] = []
@@ -149,11 +157,15 @@ export const sanitizeBox = (box: Box): Box => {
   if (box.items) {
     box.items = box.items.map(w => sanitizeBox(w))
   } else {
-    const { mode, options } = box
+    const { value, options } = box
+    if (isB(value)) {
+      box.value = value ? 1 : 0 // TODO ugly: protocol should accept boolean
+      if (!box.mode) box.mode = 'check'
+    }
     box.options = sanitizeOptions(options)
     box.index = 0
     sanitizeRange(box)
-    if (!mode) box.mode = determineMode(box)
+    if (!box.mode) box.mode = determineMode(box)
 
     if (box.mode === 'md') {
       const [md, hasLinks] = markdown(box.text ?? '')

@@ -1,12 +1,27 @@
+// Copyright 2022 H2O.ai, Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 import React from 'react';
 import styled from 'styled-components';
 import { Body } from './body';
 import { Client } from './client';
 import { isN, newIncr, S, signal, U, xid } from './core';
 import { Header } from './header';
-import { reIndex, sanitizeBox } from './heuristics';
-import { Box, Conf, Msg, MsgType } from './protocol';
+import { reIndex, sanitizeBox, sanitizeOptions } from './heuristics';
+import { Box, Setting, Msg, MsgType } from './protocol';
 import { Socket, SocketEvent, SocketEventT } from './socket';
+import { defaultScheme, Scheme } from './theme';
 import { make } from './ui';
 
 enum AppStateT { Connecting, Disconnected, Invalid, Connected }
@@ -22,8 +37,7 @@ type AppState = {
 } | {
   t: AppStateT.Connected
   socket: Socket
-  boxes: Box[]
-  conf: Conf
+  client: Client
 }
 
 const hello: Msg = {
@@ -33,21 +47,34 @@ const hello: Msg = {
   }
 }
 
-// TODO make configurable
-// Source: https://projects.verou.me/css3patterns/#tartan
-const Texture = styled.div`
-  height: 1.5rem;
-  background-color: hsl(2, 57%, 40%);
-  background-image: repeating-linear-gradient(transparent, transparent 50px, rgba(0,0,0,.4) 50px, rgba(0,0,0,.4) 53px, transparent 53px, transparent 63px, rgba(0,0,0,.4) 63px, rgba(0,0,0,.4) 66px, transparent 66px, transparent 116px, rgba(0,0,0,.5) 116px, rgba(0,0,0,.5) 166px, rgba(255,255,255,.2) 166px, rgba(255,255,255,.2) 169px, rgba(0,0,0,.5) 169px, rgba(0,0,0,.5) 179px, rgba(255,255,255,.2) 179px, rgba(255,255,255,.2) 182px, rgba(0,0,0,.5) 182px, rgba(0,0,0,.5) 232px, transparent 232px),
-  repeating-linear-gradient(270deg, transparent, transparent 50px, rgba(0,0,0,.4) 50px, rgba(0,0,0,.4) 53px, transparent 53px, transparent 63px, rgba(0,0,0,.4) 63px, rgba(0,0,0,.4) 66px, transparent 66px, transparent 116px, rgba(0,0,0,.5) 116px, rgba(0,0,0,.5) 166px, rgba(255,255,255,.2) 166px, rgba(255,255,255,.2) 169px, rgba(0,0,0,.5) 169px, rgba(0,0,0,.5) 179px, rgba(255,255,255,.2) 179px, rgba(255,255,255,.2) 182px, rgba(0,0,0,.5) 182px, rgba(0,0,0,.5) 232px, transparent 232px),
-  repeating-linear-gradient(125deg, transparent, transparent 2px, rgba(0,0,0,.2) 2px, rgba(0,0,0,.2) 3px, transparent 3px, transparent 5px, rgba(0,0,0,.2) 5px);
+const Overlay = styled.div`
+  position: absolute;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+`
+const Danger = styled.div`
+    text-align: center;
+    padding: 2rem;
+    font-size: 2rem;
+    color: #842029;
+    background-color: #f8d7da;
+    border: 1px solid #f5c2c7;
+`
+const Warning = styled.div`
+    text-align: center;
+    padding: 2rem;
+    font-size: 2rem;
+    color: #664d03;
+    background-color: #fff3cd;
+    border: 1px solid #ffecb5;
 `
 
-const AppContainer = styled.div`
-  max-width: 720px;
-  background-color: #fff;
-  margin: 1rem auto 2rem;
-`
 export const App = make(({ client }: { client: Client }) => {
   const
     stateB = signal<AppState>({ t: AppStateT.Connecting }),
@@ -68,7 +95,7 @@ export const App = make(({ client }: { client: Client }) => {
                 {
                   const { d: box, p: position } = msg
                   box.xid = xid()
-                  const { conf, boxes } = client
+                  const { boxes } = client
                   if (isN(position) && position >= 0 && position < boxes.length) {
                     boxes[position] = box
                   } else {
@@ -76,17 +103,36 @@ export const App = make(({ client }: { client: Client }) => {
                     boxes.push(sanitizeBox(box))
                   }
                   reIndex(boxes, newIncr())
-                  stateB({ t: AppStateT.Connected, socket, conf, boxes })
+                  stateB({ t: AppStateT.Connected, socket, client })
                 }
                 break
-              case MsgType.Conf:
+              case MsgType.Set:
                 {
-                  const { d: conf } = msg
-                  client.conf = conf
+                  const
+                    { d: conf } = msg,
+                    { title, caption, menu, nav, theme } = conf
+
+                  if (title) client.titleB(title)
+                  if (caption) client.captionB(caption)
+                  if (menu) client.menuB(sanitizeOptions(menu))
+                  if (nav) client.navB(sanitizeOptions(nav))
+                  if (theme) {
+                    const
+                      d = defaultScheme,
+                      scheme: Scheme = {
+                        primaryFont: d.primaryFont,
+                        monospaceFont: d.monospaceFont,
+                        backgroundColor: theme.background_color ?? d.backgroundColor,
+                        foregroundColor: theme.foreground_color ?? d.foregroundColor,
+                        primaryColor: theme.accent_color ?? d.primaryColor,
+                        primaryColorName: theme.accent_color_name ?? d.primaryColorName,
+                      }
+                    client.schemeB(scheme)
+                  }
+
                   const state = stateB()
                   if (state.t === AppStateT.Connected) {
-                    const { conf, boxes } = client
-                    stateB({ t: AppStateT.Connected, socket, conf, boxes })
+                    stateB({ t: AppStateT.Connected, socket, client })
                   }
                 }
                 break
@@ -100,7 +146,7 @@ export const App = make(({ client }: { client: Client }) => {
           stateB({ t: AppStateT.Disconnected, retry: e.retry })
           break
         case SocketEventT.Error:
-          stateB({ t: AppStateT.Invalid, error: e.error })
+          stateB({ t: AppStateT.Invalid, error: String(e.error) })
           break
       }
     },
@@ -111,19 +157,31 @@ export const App = make(({ client }: { client: Client }) => {
       const state = stateB()
       switch (state.t) {
         case AppStateT.Connecting:
-          return <div>connecting</div>
+          return (
+            <Overlay>
+              <Warning>Connecting...</Warning>
+            </Overlay>
+          )
         case AppStateT.Disconnected:
-          return <div>disconnected, retrying in {state.retry} seconds </div>
+          return (
+            <Overlay>
+              <Warning>Disconnected, retrying in {state.retry} seconds...</Warning>
+            </Overlay>
+          )
         case AppStateT.Invalid:
-          return <div>error: {state.error}</div>
+          return (
+            <Overlay>
+              <Danger>Error: {state.error}</Danger>
+            </Overlay>
+          )
         case AppStateT.Connected:
           return (
-            <div>
-              <Texture />
-              <AppContainer>
-                <Header send={state.socket.send} conf={state.conf} />
-                <Body send={state.socket.send} boxes={state.boxes} />
-              </AppContainer>
+            <div className='view'>
+              <div className='art' />
+              <div className='page'>
+                <Header send={state.socket.send} client={client} />
+                <Body send={state.socket.send} boxes={client.boxes} />
+              </div>
             </div>
           )
       }

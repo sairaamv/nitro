@@ -1,26 +1,25 @@
 site_name: H2O Nitro
-site_description: The quickest way to build web apps in Python
+site_description: The simplest way to build web apps in Python
 site_author: Prithvi Prabhu
 repo_name: h2oai/nitro
 repo_url: https://github.com/h2oai/nitro
 copyright: "Copyright &copy; 2022 <a href='https://h2o.ai'>H2O.ai, Inc</a>. Licensed under <a href='https://www.apache.org/licenses/LICENSE-2.0'>Apache-2.0</a>."
 theme:
   name: material
-  icon:
-    logo: material/rocket-launch-outline
+  logo: assets/nitro.svg
   features:
     - header.autohide
     - navigation.sections
     - navigation.indexes
     - navigation.top
+  font:
+    text: Roboto Slab
   palette:
     - scheme: default
-      primary: black
       toggle:
         icon: material/toggle-switch-off-outline
         name: Switch to dark mode
     - scheme: slate
-      primary: black
       toggle:
         icon: material/toggle-switch
         name: Switch to light mode
@@ -53,10 +52,14 @@ nav:
   - Guide:
     - 'basics.md'
     - 'markdown.md'
+    - 'styling.md'
+    - 'images.md'
     - 'layout.md'
     - 'forms.md'
     - 'textbox.md'
     - 'spinbox.md'
+    - 'checkbox.md'
+    - 'toggle.md'
     - 'pickers.md'
     - 'options.md'
     - 'buttons.md'
@@ -75,6 +78,8 @@ nav:
     - 'color-picker.md'
     - 'color-palette.md'
     - 'rating.md'
+    - 'theming.md'
+    - 'advanced-layout.md'
     # End generated
   - Meta:
       - 'change-log.md'

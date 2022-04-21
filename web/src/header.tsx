@@ -16,9 +16,10 @@ import { CommandBar, ContextualMenu } from '@fluentui/react';
 import { GlobalNavButtonActiveIcon, GlobalNavButtonIcon, RocketIcon } from '@fluentui/react-icons-mdl2';
 import React from 'react';
 import styled from 'styled-components';
+import { Client } from './client';
 import { signal, V } from './core';
 import { toContextualMenuItem } from './options';
-import { Conf, MsgType, Option } from './protocol';
+import { Setting, MsgType, Option } from './protocol';
 import { Send } from './socket';
 import { make } from './ui';
 
@@ -85,34 +86,22 @@ const NavBar = make(({ send, options }: { send: Send, options: Option[] }) => {
   return { render }
 })
 
-const Container = styled.div`
-  display: flex;
-  align-items: center;
-  padding: 1rem 2rem;
-`
-const Title = styled.div` 
-  font-weight: 700;
-  text-transform: uppercase;
-  font-size: 1rem;
-  color: #555;
-  margin-left: 0.5rem;
-`
-const Subtitle = styled.div`
-  font-weight: 400;
-  color: #999;
-  margin-left: 0.5rem;
-`
-
-export const Header = make(({ send, conf }: { send: Send, conf: Conf }) => {
+export const Header = make(({ send, client }: { send: Send, client: Client }) => {
   const
     render = () => {
+      const
+        title = client.titleB(),
+        caption = client.captionB(),
+        menu = client.menuB() ?? [],
+        nav = client.navB() ?? []
+
       return (
-        <Container>
-          <Menu send={send} options={conf.menu ?? []} />
-          <Title>{conf.title}</Title>
-          <Subtitle>{conf.caption}</Subtitle>
-          <NavBar send={send} options={conf.nav ?? []} />
-        </Container>
+        <div className='header'>
+          <Menu send={send} options={menu} />
+          <div className='title'>{title}</div>
+          <div className='caption'>{caption}</div>
+          <NavBar send={send} options={nav} />
+        </div>
       )
     }
   return { render }

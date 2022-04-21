@@ -20,7 +20,6 @@
 #
 
 from typing import Union, List
-import shutil
 import re
 from pathlib import Path
 
@@ -51,7 +50,11 @@ def dedent(lines: List[str]) -> List[str]:
 
 
 def is_def(line: str) -> bool:
-    return line.lstrip().startswith('def ')
+    return line.startswith('def ')
+
+
+def quote_newlines(line: str) -> str:
+    return line.replace('\\n', '\\\\n')
 
 
 def remove_def_if_only_def(lines: List[str]) -> List[str]:
@@ -61,8 +64,8 @@ def remove_def_if_only_def(lines: List[str]) -> List[str]:
             n += 1
     if n == 1:
         if is_def(lines[0]):
-            return dedent(lines[1:])
-    return lines
+            lines = dedent(lines[1:])
+    return [line for line in lines if 'view()' not in line]
 
 
 def strip_lines(lines: List[str]) -> List[str]:
@@ -106,7 +109,8 @@ def parse_example(src: str) -> Example:
     def save():
         if block:
             block.lines = strip_lines(block.lines)
-            blocks.append(block)
+            if len(block.lines):
+                blocks.append(block)
 
     for line in lines[1:]:
         if line.startswith('#'):
@@ -158,21 +162,24 @@ def build_funcs(groups: List[Group]) -> str:
             for block in e.blocks:
                 if isinstance(block, Comment):
                     for line in block.lines:
-                        p(f'{line}')
+                        p(line)
                 else:
                     p("```py")
                     for line in remove_def_if_only_def(block.lines):
-                        p(f'{line}')
+                        p(quote_newlines(line))
                     p("```")
             p('""",')
-            p("    '### Output',")
+
+            if not e.name.endswith('_noop'):
+                p("    '### Output',")
+
             p(')')
             p()
             for block in e.blocks:
                 if isinstance(block, Code):
                     p()
                     for line in block.lines:
-                        p(line.replace('view(', f'view(*{doc_var}, '))
+                        p(line.replace('view(', f'view_output(view, {doc_var}, '))
                     p()
     return str(p)
 
@@ -189,7 +196,9 @@ def build_topic_map(groups: List[Group]) -> str:
 def build_toc(groups: List[Group]) -> str:
     p = Printer()
     for g in groups:
-        p(f'## {g.title}')
+        p()
+        p(f'### {g.title}')
+        p()
         for e in g.examples:
             p(f'- [{e.title}](#{e.name})')
     return str(p)
@@ -208,7 +217,7 @@ def build_menu(groups: List[Group]) -> str:
 
 
 def write_tour(groups: List[Group]):
-    tour = Path('docs.template.py').read_text(). \
+    tour = (Path('docs') / '_template.py').read_text(). \
         replace('# EXAMPLES', build_funcs(groups)). \
         replace('    # TOPIC_MAP', build_topic_map(groups)). \
         replace('TOC', build_toc(groups)). \
@@ -237,7 +246,7 @@ def write_example(p: Printer, e: Example):
 docs_dir = Path('..') / 'docs'
 
 
-def write_docs_examples(groups: List[Group]):
+def write_docs(groups: List[Group]):
     for g in groups:
         p = Printer()
         p(f'# {g.title}')
@@ -247,6 +256,10 @@ def write_docs_examples(groups: List[Group]):
             p()
             p(f'## {e.title}')
             write_example(p, e)
+            p()
+            if not e.name.endswith('_noop'):
+                p(f'![Screenshot](assets/screenshots/{e.name}.png)')
+                p()
         (docs_dir / f'{g.name}.md').write_text(str(p))
 
 
@@ -278,38 +291,17 @@ def write_docs_yaml(groups: List[Group]):
     yaml_path.write_text(str(p))
 
 
-gi_separator = '# Generated Docs'
-
-
-def write_gitignore(groups: List[Group]):
-    p = Printer()
-    gi_path = Path('..') / '.gitignore'
-    gi = gi_path.read_text().split(gi_separator)[0].strip()
-    p(gi)
-    p(gi_separator)
-    for g in groups:
-        p(f'/docs/{g.name}.md')
-    gi_path.write_text(str(p))
-
-
-def decr_headings(s: str):
-    return re.sub(r'^#', '##', s, flags=re.MULTILINE)
-
-
 def write_readme(groups: List[Group]):
     p = Printer()
+    p('## Guide')
+    p()
+    p('You can always view the docs for the latest version at https://nitro.h2o.ai/.')
+    p()
+    p(f'- [Getting started](docs/install.md)')
     for g in groups:
-        for e in g.examples:
-            p(f'### {g.title} - {e.title}')
-            write_example(p, e)
+        p(f'- [{g.title}](docs/{g.name}.md)')
 
-    readme = (docs_dir / 'index.md').read_text()
-    readme = readme.replace('assets/', 'docs/assets/')
-
-    readme += decr_headings((docs_dir / 'install.md').read_text())
-
-    readme += '\n\n## Guide\n\n'
-    readme += str(p)
+    readme = (docs_dir / 'index.md').read_text().replace('assets/', 'docs/assets/') + '\n\n' + str(p)
 
     (Path('..') / 'README.md').write_text(readme)
 
@@ -321,9 +313,30 @@ def count_examples(groups: List[Group]):
     return n
 
 
+def read_example_code(file_name):
+    print(f'Reading {file_name} ...')
+
+    code = (Path('docs') / file_name).read_text()
+
+    # Clear everything before the first H1, if any
+    parts = code.split('# # ')
+    if len(parts) > 1:
+        parts[0] = ''
+
+    code = '\n# # '.join(parts)  # re-assemble
+
+    def include_file(match):
+        return read_example_code(match.group(1).strip())
+
+    return re.sub(r'^# #include (.+)', include_file, code, flags=re.MULTILINE)
+
+
 def main():
-    print('Reading examples...')
-    groups = parse_groups(Path('examples.py').read_text())
+    print('Collecting examples...')
+    examples_code = read_example_code('index.py')
+
+    print('Parsing examples')
+    groups = parse_groups(examples_code)
 
     print(f'Found {count_examples(groups)} examples in {len(groups)} groups.')
 
@@ -334,13 +347,10 @@ def main():
     write_readme(groups)
 
     print('Generating examples for docs...')
-    write_docs_examples(groups)
+    write_docs(groups)
 
     print('Updating mkdocs.yml...')
     write_docs_yaml(groups)
-
-    print('Updating .gitignore...')
-    write_gitignore(groups)
 
     print('Done!')
 

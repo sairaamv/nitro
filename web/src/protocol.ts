@@ -17,20 +17,15 @@ import { B, I, N, Pair, S, Triple, U, V } from "./core"
 export enum MsgType {
   Error = 1,
   Join,
-  Leave,
-  Abort,
-  Resume,
-  Request,
-  Response,
-  Watch,
-  Event,
+  Switch,
   Input,
+  Set,
   Insert,
   Update,
   Remove,
-  Conf,
-  Switch,
 }
+
+export type Input = B | S | N | S[] | N[]
 
 export type Msg = {
   t: MsgType.Error
@@ -38,6 +33,15 @@ export type Msg = {
 } | {
   t: MsgType.Join
   d: any // XXX formalize
+} | {
+  t: MsgType.Switch,
+  d: V
+} | {
+  t: MsgType.Input, // XXX rename
+  d: Array<Input | null>
+} | {
+  t: MsgType.Set,
+  d: Setting
 } | {
   t: MsgType.Insert
   d: Box
@@ -49,25 +53,24 @@ export type Msg = {
 } | {
   t: MsgType.Remove
   d: Box
-} | {
-  t: MsgType.Input, // XXX rename
-  d: Array<V | V[] | null>
-} | {
-  t: MsgType.Conf,
-  d: Conf
-} | {
-  t: MsgType.Switch,
-  d: V
 }
 
-export type Conf = {
+export type Theme = {
+  foreground_color?: S
+  background_color?: S
+  accent_color?: S
+  accent_color_name?: S
+}
+
+export type Setting = {
   title?: S,
   caption?: S,
   menu?: Option[]
   nav?: Option[]
+  theme?: Theme
 }
 
-export type BoxMode = 'md' | 'button' | 'menu' | 'radio' | 'check' | 'text' | 'range' | 'number' | 'time' | 'date' | 'day' | 'week' | 'month' | 'tag' | 'color' | 'rating'
+export type BoxMode = 'none' | 'md' | 'image' | 'button' | 'menu' | 'radio' | 'check' | 'toggle' | 'text' | 'range' | 'number' | 'time' | 'date' | 'day' | 'week' | 'month' | 'tag' | 'color' | 'rating'
 
 export type Box = {
   xid: S
@@ -91,6 +94,8 @@ export type Box = {
   border?: S // CSS border 1px solid ~
   color?: S  // CSS color
   background?: S // CSS background
+  image?: S // img tag or CSS background-image
+  fit?: S // CSS object-fit or background-size
   grow?: U // CSS flex-grow
   shrink?: U // CSS flex-shrink
   basis?: S // CSS flex-basis
@@ -116,6 +121,7 @@ export type Box = {
 export type Option = {
   value: V
   text?: S
+  name?: S
   icon?: S
   caption?: S
   selected?: B

@@ -1,24 +1,49 @@
-import { S } from './core'
-import { Box, Conf } from './protocol'
+// Copyright 2022 H2O.ai, Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+import { loadTheme } from '@fluentui/react'
+import { S, on, signal } from './core'
+import { Box, Option } from './protocol'
 import { connect, Socket, SocketEvent } from './socket'
+import { defaultScheme, loadScheme } from './theme'
 
 
 export const newClient = (endpoint: S) => {
-  const boxes: Box[] = []
-  const conf: Conf = {
-    title: 'H2O Nitro',
-    caption: 'v0.1.0', // XXX show actual version
-    menu: [],
-    nav: [],
-  }
-
   let _socket: Socket | null = null
-  const socket = (handle: (s: Socket, e: SocketEvent) => void): Socket => {
-    if (_socket) return _socket
-    return _socket = connect(endpoint, e => { if (_socket) handle(_socket, e) })
-  }
+  const
+    boxes: Box[] = [],
+    titleB = signal('H2O Nitro'),
+    captionB = signal('v0.1.0'),
+    menuB = signal<Option[]>([]),
+    navB = signal<Option[]>([]),
+    schemeB = signal(defaultScheme),
+    socket = (handle: (s: Socket, e: SocketEvent) => void): Socket => {
+      if (_socket) return _socket
+      return _socket = connect(endpoint, e => {
+        if (_socket) handle(_socket, e)
+      })
+    }
+
+  on(titleB, title => document.title = title)
+  on(schemeB, scheme => window.setTimeout(() => loadScheme(scheme), 100))
+
   return {
-    conf,
+    titleB,
+    captionB,
+    menuB,
+    navB,
+    schemeB,
     boxes,
     socket,
   }
